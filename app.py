@@ -12,14 +12,18 @@ def shorten_url(long_url):
     except Exception:
         return long_url
 
-def search_youtube(query):
+def search_youtube(query, media_type):
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
+        'cookiefile': 'cookies.txt',
         'default_search': 'ytsearch1',
         'forcejson': True,
         'noplaylist': True,
-        'format': 'best'
+        'format': (
+            'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
+            else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
+        )
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
@@ -43,7 +47,7 @@ def play(query):
     media_type = request.args.get('format', 'video').lower()
     decoded_query = urllib.parse.unquote(query)
 
-    info = search_youtube(decoded_query)
+    info = search_youtube(decoded_query, media_type)
 
     if not info or not info.get("url"):
         return jsonify({
@@ -61,40 +65,8 @@ def play(query):
             "quality": None,
             "type": media_type,
             "creator": "Broken Vzn",
-            "error": "No video found"
+            "error": "No video found or YouTube blocked access"
         }), 404
-
-    try:
-        format_type = (
-            'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
-            else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
-        )
-        with yt_dlp.YoutubeDL({
-            'quiet': True,
-            'skip_download': True,
-            'forcejson': True,
-            'noplaylist': True,
-            'format': format_type
-        }) as ydl:
-            info = ydl.extract_info(info.get("webpage_url"), download=False)
-    except Exception as e:
-        return jsonify({
-            "title": decoded_query,
-            "download_url": None,
-            "video_url": info.get("webpage_url"),
-            "thumbnail": None,
-            "duration": None,
-            "channel_name": None,
-            "publish_date": None,
-            "views": None,
-            "likes": None,
-            "description": None,
-            "format": "mp3" if media_type == "audio" else "mp4",
-            "quality": None,
-            "type": media_type,
-            "creator": "Broken Vzn",
-            "error": str(e)
-        }), 500
 
     short_url = shorten_url(info.get("url"))
     publish_date = info.get("upload_date")
