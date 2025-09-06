@@ -1,11 +1,13 @@
-
 from flask import Flask, jsonify, request
 import yt_dlp
 import urllib.parse
 import requests
 import traceback
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
+
+GENIUS_ACCESS_TOKEN = "2yHuhzVQAmuuHKKcJekeM3wXiBLQzt8GDqWVodgzq7slXnwZSZqLqXnhwVcjIwn9"
 
 def shorten_url(long_url):
     try:
@@ -15,7 +17,7 @@ def shorten_url(long_url):
         return long_url
 
 def search_and_extract(query, media_type):
-    search_opts = {
+    ydl_opts = {
         'quiet': True,
         'skip_download': True,
         'cookiefile': 'cookies.txt',
@@ -28,17 +30,44 @@ def search_and_extract(query, media_type):
             else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
         )
     }
-    with yt_dlp.YoutubeDL(search_opts) as ydl:
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         result = ydl.extract_info(query, download=False)
         if 'entries' in result and result['entries']:
             return result['entries'][0]
         return result
 
+def get_genius_lyrics(query):
+    try:
+        search_url = f"https://api.genius.com/search?q={urllib.parse.quote(query)}"
+        headers = {"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"}
+        response = requests.get(search_url, headers=headers, timeout=5).json()
+
+        hits = response.get("response", {}).get("hits", [])
+        if not hits:
+            return None
+
+        song_path = hits[0]["result"]["path"]
+        lyrics_url = f"https://genius.com{song_path}"
+        page = requests.get(lyrics_url, timeout=5)
+        soup = BeautifulSoup(page.text, "html.parser")
+
+        containers = soup.find_all("div", class_="Lyrics__Container")
+        if not containers:
+            return None
+
+        lyrics = "\n".join([c.get_text(separator="\n").strip() for c in containers])
+        return lyrics
+    except Exception:
+        return None
+
 @app.route('/')
 def home():
     return jsonify({
-        "message": "Welcome to Broken Vzn's YouTube API",
-        "usage": "/play/<query>?format=audio|video",
+        "message": "Welcome to Broken Vzn's Media API",
+        "usage": {
+            "/play/<query>?format=audio|video": "Stream audio or video",
+            "/lyrics/<query>": "Get lyrics from Genius"
+        },
         "creator": "Broken Vzn"
     })
 
@@ -53,39 +82,65 @@ def play(query):
             raise Exception("No video found or YouTube blocked access")
 
         short_url = shorten_url(info.get("url"))
+        video_id = info.get("id")
+        thumbnail = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg" if video_id else None
         publish_date = info.get("upload_date")
         if publish_date:
             publish_date = f"{publish_date[:4]}-{publish_date[4:6]}-{publish_date[6:]}"
-        video_id = info.get("id")
-        embed_url = f"https://www.youtube.com/embed/{video_id}" if video_id else None
-
-        return jsonify({
-            "title": info.get("title"),
-            "download_url": short_url if media_type == "audio" else None,
-            "video_url": embed_url,
-            "thumbnail": info.get("thumbnail"),
-            "duration": info.get("duration"),
-            "publish_date": publish_date,
-            "description": info.get("description"),
-            "format": "mp3" if media_type == "audio" else "mp4",
-            "quality": info.get("format"),
-            "type": media_type,
-            "creator": "Broken Vzn"
-        })
+        
+        if media_type == "audio":
+            return jsonify({
+                "title": info.get("title"),
+                "download_url": short_url,
+                "video_url": info.get("webpage_url"),
+                "thumbnail": thumbnail,
+                "duration": info.get("duration"),
+                "publish_date": publish_date,
+                "description": info.get("description"),
+                "format": "mp3",
+                "quality": info.get("format"),
+                "type": "audio",
+                "creator": "Broken Vzn"
+            })
+        else:
+            return jsonify({
+                "title": info.get("title"),
+                "download_url": short_url,
+                "thumbnail": thumbnail,
+                "format": "mp4",
+                "quality": info.get("format"),
+                "type": "video",
+                "creator": "Broken Vzn"
+            })
 
     except Exception as e:
         print("YT-DLP ERROR:", traceback.format_exc())
         return jsonify({
             "title": decoded_query,
             "download_url": None,
-            "video_url": None,
             "thumbnail": None,
-            "duration": None,
-            "publish_date": None,
-            "description": None,
             "format": "mp3" if media_type == "audio" else "mp4",
             "quality": None,
             "type": media_type,
             "creator": "Broken Vzn",
             "error": str(e)
         }), 500
+
+@app.route('/lyrics/<path:query>')
+def lyrics(query):
+    decoded_query = urllib.parse.unquote(query)
+    lyrics = get_genius_lyrics(decoded_query)
+    if lyrics:
+        return jsonify({
+            "title": decoded_query.title(),
+            "lyrics": lyrics,
+            "source": "Genius",
+            "creator": "Broken Vzn"
+        })
+    else:
+        return jsonify({
+            "title": decoded_query.title(),
+            "lyrics": None,
+            "error": "Lyrics not found",
+            "creator": "Broken Vzn"
+        }), 404
