@@ -1,6 +1,5 @@
 from flask import Flask, jsonify, request
 import yt_dlp
-import urllib.parse
 import requests
 import traceback
 
@@ -18,6 +17,7 @@ def extract_audio_info(video_url):
         'quiet': True,
         'skip_download': True,
         'cookiefile': 'cookies.txt',
+        'cachedir': False,
         'forcejson': True,
         'noplaylist': True,
         'format': 'bestaudio[ext=m4a]/bestaudio'
@@ -36,32 +36,20 @@ def home():
 @app.route('/play/<path:query>')
 def play(query):
     media_type = request.args.get('format', 'video').lower()
-    decoded_query = urllib.parse.unquote(query)
+    query_lower = query.lower()
 
-    # Hardcoded top video URLs for known queries
-    fallback_map = {
-        "holiday by rema": "https://www.youtube.com/watch?v=LboPHhUyIbo",
-        "juice wrld burn": "https://www.youtube.com/watch?v=HA1srD2DwaI"
+    # Verified video URLs
+    video_map = {
+        "juice wrld burn": "https://www.youtube.com/watch?v=HA1srD2DwaI",
+        "holiday by rema": "https://www.youtube.com/watch?v=LboPHhUyIbo"
     }
 
-    video_url = fallback_map.get(decoded_query.lower())
+    video_url = video_map.get(query_lower)
     if not video_url:
         return jsonify({
-            "title": decoded_query,
-            "download_url": None,
-            "video_url": None,
-            "thumbnail": None,
-            "duration": None,
-            "channel_name": None,
-            "publish_date": None,
-            "views": None,
-            "likes": None,
-            "description": None,
-            "format": "mp3" if media_type == "audio" else "mp4",
-            "quality": None,
-            "type": media_type,
-            "creator": "Broken Vzn",
-            "error": "No known video URL for this query"
+            "title": query,
+            "error": "No known video URL for this query",
+            "creator": "Broken Vzn"
         }), 404
 
     try:
@@ -77,10 +65,7 @@ def play(query):
                 "video_url": video_url,
                 "thumbnail": info.get("thumbnail"),
                 "duration": info.get("duration"),
-                "channel_name": info.get("channel"),
                 "publish_date": publish_date,
-                "views": info.get("view_count"),
-                "likes": info.get("like_count"),
                 "description": info.get("description"),
                 "format": "mp3",
                 "quality": info.get("format"),
@@ -88,19 +73,17 @@ def play(query):
                 "creator": "Broken Vzn"
             })
         else:
-            # Video mode returns embed link + metadata only
+            # Video mode returns embed + thumbnail
             video_id = video_url.split("v=")[-1]
             embed_url = f"https://www.youtube.com/embed/{video_id}"
+            publish_date = "2023-02-17" if "rema" in query_lower else "2021-12-10"
             return jsonify({
-                "title": decoded_query.title(),
+                "title": query.title(),
                 "download_url": None,
                 "video_url": embed_url,
                 "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
                 "duration": None,
-                "channel_name": None,
-                "publish_date": None,
-                "views": None,
-                "likes": None,
+                "publish_date": publish_date,
                 "description": None,
                 "format": "mp4",
                 "quality": "YouTube Embed",
@@ -111,19 +94,7 @@ def play(query):
     except Exception as e:
         print("YT-DLP ERROR:", traceback.format_exc())
         return jsonify({
-            "title": decoded_query,
-            "download_url": None,
-            "video_url": None,
-            "thumbnail": None,
-            "duration": None,
-            "channel_name": None,
-            "publish_date": None,
-            "views": None,
-            "likes": None,
-            "description": None,
-            "format": "mp3" if media_type == "audio" else "mp4",
-            "quality": None,
-            "type": media_type,
-            "creator": "Broken Vzn",
-            "error": str(e)
+            "title": query,
+            "error": str(e),
+            "creator": "Broken Vzn"
         }), 500
