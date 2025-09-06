@@ -1,3 +1,4 @@
+
 from flask import Flask, jsonify, request
 import yt_dlp
 import urllib.parse
@@ -9,6 +10,7 @@ def play(query):
     media_type = request.args.get('format', 'video').lower()
     decoded_query = urllib.parse.unquote(query)
 
+    # Use ytsearch1 to get the top YouTube result
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
