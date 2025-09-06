@@ -12,12 +12,11 @@ def shorten_url(long_url):
     except Exception:
         return long_url
 
-def search_youtube(query, media_type):
+def extract_video_info(video_url, media_type):
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
         'cookiefile': 'cookies.txt',
-        'default_search': 'ytsearch1',
         'forcejson': True,
         'noplaylist': True,
         'format': (
@@ -26,13 +25,23 @@ def search_youtube(query, media_type):
         )
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            result = ydl.extract_info(query, download=False)
-            if 'entries' in result and result['entries']:
-                return result['entries'][0]
-            return None
-        except Exception:
-            return None
+        return ydl.extract_info(video_url, download=False)
+
+def search_youtube(query):
+    ydl_opts = {
+        'quiet': True,
+        'skip_download': True,
+        'cookiefile': 'cookies.txt',
+        'default_search': 'ytsearch1',
+        'forcejson': True,
+        'noplaylist': True,
+        'format': 'best'
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        result = ydl.extract_info(query, download=False)
+        if 'entries' in result and result['entries']:
+            return result['entries'][0]
+        return None
 
 @app.route('/')
 def home():
@@ -47,9 +56,35 @@ def play(query):
     media_type = request.args.get('format', 'video').lower()
     decoded_query = urllib.parse.unquote(query)
 
-    info = search_youtube(decoded_query, media_type)
+    try:
+        search_result = search_youtube(decoded_query)
+        if not search_result or not search_result.get("webpage_url"):
+            raise Exception("No video found")
 
-    if not info or not info.get("url"):
+        info = extract_video_info(search_result["webpage_url"], media_type)
+        short_url = shorten_url(info.get("url"))
+        publish_date = info.get("upload_date")
+        if publish_date:
+            publish_date = f"{publish_date[:4]}-{publish_date[4:6]}-{publish_date[6:]}"  # Format YYYY-MM-DD
+
+        return jsonify({
+            "title": info.get("title"),
+            "download_url": short_url,
+            "video_url": info.get("webpage_url"),
+            "thumbnail": info.get("thumbnail"),
+            "duration": info.get("duration"),
+            "channel_name": info.get("channel"),
+            "publish_date": publish_date,
+            "views": info.get("view_count"),
+            "likes": info.get("like_count"),
+            "description": info.get("description"),
+            "format": "mp3" if media_type == "audio" else "mp4",
+            "quality": info.get("format"),
+            "type": media_type,
+            "creator": "Broken Vzn"
+        })
+
+    except Exception as e:
         return jsonify({
             "title": decoded_query,
             "download_url": None,
@@ -65,27 +100,5 @@ def play(query):
             "quality": None,
             "type": media_type,
             "creator": "Broken Vzn",
-            "error": "No video found or YouTube blocked access"
+            "error": str(e)
         }), 404
-
-    short_url = shorten_url(info.get("url"))
-    publish_date = info.get("upload_date")
-    if publish_date:
-        publish_date = f"{publish_date[:4]}-{publish_date[4:6]}-{publish_date[6:]}"  # Format YYYY-MM-DD
-
-    return jsonify({
-        "title": info.get("title"),
-        "download_url": short_url,
-        "video_url": info.get("webpage_url"),
-        "thumbnail": info.get("thumbnail"),
-        "duration": info.get("duration"),
-        "channel_name": info.get("channel"),
-        "publish_date": publish_date,
-        "views": info.get("view_count"),
-        "likes": info.get("like_count"),
-        "description": info.get("description"),
-        "format": "mp3" if media_type == "audio" else "mp4",
-        "quality": info.get("format"),
-        "type": media_type,
-        "creator": "Broken Vzn"
-    })
