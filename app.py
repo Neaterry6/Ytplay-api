@@ -1,5 +1,7 @@
+
 from flask import Flask, jsonify, request
 import yt_dlp
+import urllib.parse
 import requests
 import traceback
 
@@ -12,18 +14,25 @@ def shorten_url(long_url):
     except Exception:
         return long_url
 
-def extract_audio_info(video_url):
-    ydl_opts = {
+def search_and_extract(query, media_type):
+    search_opts = {
         'quiet': True,
         'skip_download': True,
         'cookiefile': 'cookies.txt',
         'cachedir': False,
+        'default_search': 'ytsearch1',
         'forcejson': True,
         'noplaylist': True,
-        'format': 'bestaudio[ext=m4a]/bestaudio'
+        'format': (
+            'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
+            else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
+        )
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        return ydl.extract_info(video_url, download=False)
+    with yt_dlp.YoutubeDL(search_opts) as ydl:
+        result = ydl.extract_info(query, download=False)
+        if 'entries' in result and result['entries']:
+            return result['entries'][0]
+        return result
 
 @app.route('/')
 def home():
@@ -36,65 +45,47 @@ def home():
 @app.route('/play/<path:query>')
 def play(query):
     media_type = request.args.get('format', 'video').lower()
-    query_lower = query.lower()
-
-    # Verified video URLs
-    video_map = {
-        "juice wrld burn": "https://www.youtube.com/watch?v=HA1srD2DwaI",
-        "holiday by rema": "https://www.youtube.com/watch?v=LboPHhUyIbo"
-    }
-
-    video_url = video_map.get(query_lower)
-    if not video_url:
-        return jsonify({
-            "title": query,
-            "error": "No known video URL for this query",
-            "creator": "Broken Vzn"
-        }), 404
+    decoded_query = urllib.parse.unquote(query)
 
     try:
-        if media_type == "audio":
-            info = extract_audio_info(video_url)
-            short_url = shorten_url(info.get("url"))
-            publish_date = info.get("upload_date")
-            if publish_date:
-                publish_date = f"{publish_date[:4]}-{publish_date[4:6]}-{publish_date[6:]}"
-            return jsonify({
-                "title": info.get("title"),
-                "download_url": short_url,
-                "video_url": video_url,
-                "thumbnail": info.get("thumbnail"),
-                "duration": info.get("duration"),
-                "publish_date": publish_date,
-                "description": info.get("description"),
-                "format": "mp3",
-                "quality": info.get("format"),
-                "type": "audio",
-                "creator": "Broken Vzn"
-            })
-        else:
-            # Video mode returns embed + thumbnail
-            video_id = video_url.split("v=")[-1]
-            embed_url = f"https://www.youtube.com/embed/{video_id}"
-            publish_date = "2023-02-17" if "rema" in query_lower else "2021-12-10"
-            return jsonify({
-                "title": query.title(),
-                "download_url": None,
-                "video_url": embed_url,
-                "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
-                "duration": None,
-                "publish_date": publish_date,
-                "description": None,
-                "format": "mp4",
-                "quality": "YouTube Embed",
-                "type": "video",
-                "creator": "Broken Vzn"
-            })
+        info = search_and_extract(decoded_query, media_type)
+        if not info or not info.get("url"):
+            raise Exception("No video found or YouTube blocked access")
+
+        short_url = shorten_url(info.get("url"))
+        publish_date = info.get("upload_date")
+        if publish_date:
+            publish_date = f"{publish_date[:4]}-{publish_date[4:6]}-{publish_date[6:]}"
+        video_id = info.get("id")
+        embed_url = f"https://www.youtube.com/embed/{video_id}" if video_id else None
+
+        return jsonify({
+            "title": info.get("title"),
+            "download_url": short_url if media_type == "audio" else None,
+            "video_url": embed_url,
+            "thumbnail": info.get("thumbnail"),
+            "duration": info.get("duration"),
+            "publish_date": publish_date,
+            "description": info.get("description"),
+            "format": "mp3" if media_type == "audio" else "mp4",
+            "quality": info.get("format"),
+            "type": media_type,
+            "creator": "Broken Vzn"
+        })
 
     except Exception as e:
         print("YT-DLP ERROR:", traceback.format_exc())
         return jsonify({
-            "title": query,
-            "error": str(e),
-            "creator": "Broken Vzn"
+            "title": decoded_query,
+            "download_url": None,
+            "video_url": None,
+            "thumbnail": None,
+            "duration": None,
+            "publish_date": None,
+            "description": None,
+            "format": "mp3" if media_type == "audio" else "mp4",
+            "quality": None,
+            "type": media_type,
+            "creator": "Broken Vzn",
+            "error": str(e)
         }), 500
