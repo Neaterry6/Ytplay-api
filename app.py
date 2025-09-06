@@ -37,6 +37,15 @@ def fetch_video_info(query, media_type):
             return result['entries'][0]
         return None
 
+# 🏠 Root route for uptime bots
+@app.route('/')
+def home():
+    return jsonify({
+        "message": "Welcome to Broken Vzn's YouTube API",
+        "endpoints": ["/play/<query>?format=audio|video"],
+        "creator": "Broken Vzn"
+    })
+
 # 🎧 /play endpoint for audio or video search
 @app.route('/play/<path:query>')
 def play(query):
@@ -69,18 +78,29 @@ def play(query):
             "creator": "Broken Vzn"
         })
 
-    except Exception as e:
-        return jsonify({
-            "title": decoded_query,
-            "download_url": None,
-            "short_url": None,
-            "format": "mp3" if media_type == "audio" else "mp4",
-            "quality": None,
-            "type": media_type,
-            "creator": "Broken Vzn",
-            "error": str(e)
-        }), 500
+    except yt_dlp.utils.DownloadError as e:
+        if "429" in str(e):
+            return jsonify({
+                "title": decoded_query,
+                "download_url": None,
+                "short_url": None,
+                "format": "mp3" if media_type == "audio" else "mp4",
+                "quality": None,
+                "type": media_type,
+                "creator": "Broken Vzn",
+                "error": "YouTube is rate-limiting this server. Try again later."
+            }), 429
+        else:
+            return jsonify({
+                "title": decoded_query,
+                "download_url": None,
+                "short_url": None,
+                "format": "mp3" if media_type == "audio" else "mp4",
+                "quality": None,
+                "type": media_type,
+                "creator": "Broken Vzn",
+                "error": str(e)
+            }), 500
 
-# 🚀 Run locally or on Render
 if __name__ == '__main__':
     app.run(port=5000)
