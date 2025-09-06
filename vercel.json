@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/app.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/play",
+      "dest": "/api/app.py"
+    },
+    {
+      "src": "/video",
+      "dest": "/api/app.py"
+    },
+    {
+      "src": "/download",
+      "dest": "/api/app.py"
+    }
+  ]
+}
