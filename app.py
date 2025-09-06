@@ -12,20 +12,23 @@ def shorten_url(long_url):
     except Exception:
         return long_url
 
-def extract_info(video_url, media_type):
+def search_youtube(query):
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
+        'default_search': 'ytsearch1',
         'forcejson': True,
         'noplaylist': True,
-        'format': (
-            'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
-            else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
-        )
+        'format': 'best'
     }
-
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        return ydl.extract_info(video_url, download=False)
+        try:
+            result = ydl.extract_info(query, download=False)
+            if 'entries' in result and result['entries']:
+                return result['entries'][0]
+            return None
+        except Exception:
+            return None
 
 @app.route('/')
 def home():
@@ -40,14 +43,9 @@ def play(query):
     media_type = request.args.get('format', 'video').lower()
     decoded_query = urllib.parse.unquote(query)
 
-    # Step 1: Search YouTube manually (you can automate this with YouTube Data API or scraping)
-    fallback_map = {
-        "juice wrld burn": "https://www.youtube.com/watch?v=HA1srD2DwaI",
-        "holiday by rema": "https://www.youtube.com/watch?v=LboPHhUyIbo"
-    }
+    info = search_youtube(decoded_query)
 
-    video_url = fallback_map.get(decoded_query.lower())
-    if not video_url:
+    if not info or not info.get("url"):
         return jsonify({
             "title": decoded_query,
             "download_url": None,
@@ -63,16 +61,27 @@ def play(query):
             "quality": None,
             "type": media_type,
             "creator": "Broken Vzn",
-            "error": "No fallback video URL found for this query"
+            "error": "No video found"
         }), 404
 
     try:
-        info = extract_info(video_url, media_type)
+        format_type = (
+            'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
+            else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
+        )
+        with yt_dlp.YoutubeDL({
+            'quiet': True,
+            'skip_download': True,
+            'forcejson': True,
+            'noplaylist': True,
+            'format': format_type
+        }) as ydl:
+            info = ydl.extract_info(info.get("webpage_url"), download=False)
     except Exception as e:
         return jsonify({
             "title": decoded_query,
             "download_url": None,
-            "video_url": video_url,
+            "video_url": info.get("webpage_url"),
             "thumbnail": None,
             "duration": None,
             "channel_name": None,
@@ -95,7 +104,7 @@ def play(query):
     return jsonify({
         "title": info.get("title"),
         "download_url": short_url,
-        "video_url": video_url,
+        "video_url": info.get("webpage_url"),
         "thumbnail": info.get("thumbnail"),
         "duration": info.get("duration"),
         "channel_name": info.get("channel"),
