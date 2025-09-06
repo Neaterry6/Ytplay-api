@@ -6,7 +6,6 @@ from functools import lru_cache
 
 app = Flask(__name__)
 
-# 🔗 Shorten long download URLs using is.gd
 def shorten_url(long_url):
     try:
         response = requests.get(f"https://is.gd/create.php?format=simple&url={long_url}", timeout=2)
@@ -14,7 +13,6 @@ def shorten_url(long_url):
     except Exception:
         return long_url
 
-# ⚡ Cache results to avoid repeated YouTube hits
 @lru_cache(maxsize=100)
 def fetch_video_info(query, media_type):
     ydl_opts = {
@@ -33,10 +31,13 @@ def fetch_video_info(query, media_type):
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        result = ydl.extract_info(query, download=False)
-        if 'entries' in result and result['entries']:
-            return result['entries'][0]
-        return None
+        try:
+            result = ydl.extract_info(query, download=False)
+            if 'entries' in result and result['entries']:
+                return result['entries'][0]
+            return None
+        except Exception:
+            return None
 
 @app.route('/')
 def home():
@@ -51,50 +52,68 @@ def play(query):
     media_type = request.args.get('format', 'video').lower()
     decoded_query = urllib.parse.unquote(query)
 
-    try:
-        info = fetch_video_info(decoded_query, media_type)
-        if not info or not info.get("url"):
-            return jsonify({
-                "title": decoded_query,
-                "download_url": None,
-                "video_url": None,
-                "thumbnail": None,
-                "duration": None,
-                "format": "mp3" if media_type == "audio" else "mp4",
-                "quality": None,
-                "type": media_type,
-                "creator": "Broken Vzn",
-                "error": "No video found"
-            }), 404
+    info = fetch_video_info(decoded_query, media_type)
 
-        short_url = shorten_url(info.get("url"))
-        video_url = f"https://www.youtube.com/watch?v={info.get('id')}" if info.get("id") else None
+    # Fallback to direct YouTube URL if search fails
+    if not info or not info.get("url"):
+        fallback_url = "https://www.youtube.com/watch?v=HA1srD2DwaI"  # Juice WRLD – Burn
+        try:
+            with yt_dlp.YoutubeDL({
+                'quiet': True,
+                'skip_download': True,
+                'forcejson': True,
+                'noplaylist': True,
+                'format': (
+                    'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
+                    else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
+                )
+            }) as ydl:
+                info = ydl.extract_info(fallback_url, download=False)
+        except Exception:
+            info = None
 
-        return jsonify({
-            "title": info.get("title"),
-            "download_url": short_url,
-            "video_url": video_url,
-            "thumbnail": info.get("thumbnail"),
-            "duration": info.get("duration"),
-            "format": "mp3" if media_type == "audio" else "mp4",
-            "quality": info.get("format"),
-            "type": media_type,
-            "creator": "Broken Vzn"
-        })
-
-    except yt_dlp.utils.DownloadError as e:
+    if not info or not info.get("url"):
         return jsonify({
             "title": decoded_query,
             "download_url": None,
             "video_url": None,
             "thumbnail": None,
             "duration": None,
+            "channel_name": None,
+            "publish_date": None,
+            "views": None,
+            "likes": None,
+            "description": None,
             "format": "mp3" if media_type == "audio" else "mp4",
             "quality": None,
             "type": media_type,
             "creator": "Broken Vzn",
-            "error": str(e)
-        }), 500
+            "error": "No video found"
+        }), 404
+
+    short_url = shorten_url(info.get("url"))
+    video_url = f"https://www.youtube.com/watch?v={info.get('id')}" if info.get("id") else None
+    channel_name = info.get("channel") or info.get("channel_id") or None
+    publish_date = info.get("upload_date")
+    if publish_date:
+        publish_date = f"{publish_date[:4]}-{publish_date[4:6]}-{publish_date[6:]}"  # Format YYYY-MM-DD
+
+    return jsonify({
+        "title": info.get("title"),
+        "download_url": short_url,
+        "video_url": video_url,
+        "thumbnail": info.get("thumbnail"),
+        "duration": info.get("duration"),
+        "channel_name": channel_name,
+        "publish_date": publish_date,
+        "views": info.get("view_count"),
+        "likes": info.get("like_count"),
+        "description": info.get("description"),
+        "format": "mp3" if media_type == "audio" else "mp4",
+        "quality": info.get("format"),
+        "type": media_type,
+        "creator": "Broken Vzn"
+    })
 
 if __name__ == '__main__':
     app.run(port=5000, threaded=True)
