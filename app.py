@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 import yt_dlp
 import urllib.parse
 import requests
+import traceback
 
 app = Flask(__name__)
 
@@ -27,7 +28,7 @@ def extract_video_info(video_url, media_type):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         return ydl.extract_info(video_url, download=False)
 
-def search_youtube(query):
+def search_youtube(query, media_type):
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
@@ -35,7 +36,10 @@ def search_youtube(query):
         'default_search': 'ytsearch1',
         'forcejson': True,
         'noplaylist': True,
-        'format': 'best'
+        'format': (
+            'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
+            else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
+        )
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         result = ydl.extract_info(query, download=False)
@@ -57,9 +61,9 @@ def play(query):
     decoded_query = urllib.parse.unquote(query)
 
     try:
-        search_result = search_youtube(decoded_query)
+        search_result = search_youtube(decoded_query, media_type)
         if not search_result or not search_result.get("webpage_url"):
-            raise Exception("No video found")
+            raise Exception("No video found or YouTube blocked access")
 
         info = extract_video_info(search_result["webpage_url"], media_type)
         short_url = shorten_url(info.get("url"))
@@ -85,6 +89,7 @@ def play(query):
         })
 
     except Exception as e:
+        print("YT-DLP ERROR:", traceback.format_exc())
         return jsonify({
             "title": decoded_query,
             "download_url": None,
@@ -101,4 +106,4 @@ def play(query):
             "type": media_type,
             "creator": "Broken Vzn",
             "error": str(e)
-        }), 404
+        }), 500
