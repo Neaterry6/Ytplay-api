@@ -1,4 +1,3 @@
-
 from flask import Flask, jsonify, request
 import yt_dlp
 import urllib.parse
@@ -10,7 +9,6 @@ def play(query):
     media_type = request.args.get('format', 'video').lower()
     decoded_query = urllib.parse.unquote(query)
 
-    # Use ytsearch1 to get the top YouTube result
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
@@ -22,7 +20,22 @@ def play(query):
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(decoded_query, download=False)
+            search_result = ydl.extract_info(decoded_query, download=False)
+
+            # ytsearch returns a playlist, so we grab the first video
+            if 'entries' in search_result and search_result['entries']:
+                info = search_result['entries'][0]
+            else:
+                return jsonify({
+                    "title": decoded_query,
+                    "download_url": None,
+                    "format": "mp3" if media_type == "audio" else "mp4",
+                    "quality": None,
+                    "type": media_type,
+                    "creator": "Broken Vzn",
+                    "error": "No video found for query"
+                }), 404
+
             return jsonify({
                 "title": info.get("title"),
                 "download_url": info.get("url"),
@@ -31,6 +44,7 @@ def play(query):
                 "type": media_type,
                 "creator": "Broken Vzn"
             })
+
     except Exception as e:
         return jsonify({
             "title": decoded_query,
