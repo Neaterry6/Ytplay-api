@@ -1,3 +1,4 @@
+
 from flask import Flask, jsonify, request
 import yt_dlp
 import urllib.parse
@@ -6,10 +7,10 @@ from functools import lru_cache
 
 app = Flask(__name__)
 
-# 🔗 Shorten long download URLs using TinyURL
+# 🔗 Fast URL shortener using is.gd
 def shorten_url(long_url):
     try:
-        response = requests.get(f"https://tinyurl.com/api-create.php?url={long_url}")
+        response = requests.get(f"https://is.gd/create.php?format=simple&url={long_url}", timeout=2)
         return response.text if response.status_code == 200 else long_url
     except Exception:
         return long_url
@@ -25,6 +26,7 @@ def fetch_video_info(query, media_type):
         'forcejson': True,
         'noplaylist': True,
         'force_ipv4': True,
+        'socket_timeout': 5,
         'format': (
             'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
             else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
@@ -58,7 +60,6 @@ def play(query):
             return jsonify({
                 "title": decoded_query,
                 "download_url": None,
-                "short_url": None,
                 "format": "mp3" if media_type == "audio" else "mp4",
                 "quality": None,
                 "type": media_type,
@@ -70,8 +71,7 @@ def play(query):
 
         return jsonify({
             "title": info.get("title"),
-            "download_url": info.get("url"),
-            "short_url": short_url,
+            "download_url": short_url,
             "format": "mp3" if media_type == "audio" else "mp4",
             "quality": info.get("format"),
             "type": media_type,
@@ -83,7 +83,6 @@ def play(query):
             return jsonify({
                 "title": decoded_query,
                 "download_url": None,
-                "short_url": None,
                 "format": "mp3" if media_type == "audio" else "mp4",
                 "quality": None,
                 "type": media_type,
@@ -94,7 +93,6 @@ def play(query):
             return jsonify({
                 "title": decoded_query,
                 "download_url": None,
-                "short_url": None,
                 "format": "mp3" if media_type == "audio" else "mp4",
                 "quality": None,
                 "type": media_type,
@@ -103,4 +101,4 @@ def play(query):
             }), 500
 
 if __name__ == '__main__':
-    app.run(port=5000)
+    app.run(port=5000, threaded=True)
