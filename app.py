@@ -9,6 +9,11 @@ app = Flask(__name__)
 
 GENIUS_ACCESS_TOKEN = "2yHuhzVQAmuuHKKcJekeM3wXiBLQzt8GDqWVodgzq7slXnwZSZqLqXnhwVcjIwn9"
 
+fallback_map = {
+    "holiday by rema": "https://www.youtube.com/watch?v=LboPHhUyIbo",
+    "juice wrld burn": "https://www.youtube.com/watch?v=HA1srD2DwaI"
+}
+
 def shorten_url(long_url):
     try:
         response = requests.get(f"https://is.gd/create.php?format=simple&url={long_url}", timeout=2)
@@ -74,10 +79,11 @@ def home():
 @app.route('/play/<path:query>')
 def play(query):
     media_type = request.args.get('format', 'video').lower()
-    decoded_query = urllib.parse.unquote(query)
+    decoded_query = urllib.parse.unquote(query).lower()
 
     try:
-        info = search_and_extract(decoded_query, media_type)
+        video_url = fallback_map.get(decoded_query)
+        info = search_and_extract(video_url if video_url else decoded_query, media_type)
         if not info or not info.get("url"):
             raise Exception("No video found or YouTube blocked access")
 
@@ -116,7 +122,7 @@ def play(query):
     except Exception as e:
         print("YT-DLP ERROR:", traceback.format_exc())
         return jsonify({
-            "title": decoded_query,
+            "title": decoded_query.title(),
             "download_url": None,
             "thumbnail": None,
             "format": "mp3" if media_type == "audio" else "mp4",
