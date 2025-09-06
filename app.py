@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 @app.route('/play/<path:query>')
 def play(query):
-    media_type = request.args.get('format', 'video').lower()  # 'audio' or 'video'
+    media_type = request.args.get('format', 'video').lower()
     decoded_query = urllib.parse.unquote(query)
 
     ydl_opts = {
@@ -30,7 +30,15 @@ def play(query):
                 "creator": "Broken Vzn"
             })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "title": decoded_query,
+            "download_url": None,
+            "format": "mp3" if media_type == "audio" else "mp4",
+            "quality": None,
+            "type": media_type,
+            "creator": "Broken Vzn",
+            "error": str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(port=5000)
