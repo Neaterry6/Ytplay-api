@@ -6,6 +6,7 @@ from functools import lru_cache
 
 app = Flask(__name__)
 
+# 🔗 Shorten long download URLs using TinyURL
 def shorten_url(long_url):
     try:
         response = requests.get(f"https://tinyurl.com/api-create.php?url={long_url}")
@@ -13,6 +14,7 @@ def shorten_url(long_url):
     except Exception:
         return long_url
 
+# ⚡ Cache results to avoid repeated YouTube hits
 @lru_cache(maxsize=100)
 def fetch_video_info(query, media_type):
     ydl_opts = {
@@ -35,6 +37,7 @@ def fetch_video_info(query, media_type):
             return result['entries'][0]
         return None
 
+# 🎧 /play endpoint for audio or video search
 @app.route('/play/<path:query>')
 def play(query):
     media_type = request.args.get('format', 'video').lower()
@@ -78,5 +81,6 @@ def play(query):
             "error": str(e)
         }), 500
 
+# 🚀 Run locally or on Render
 if __name__ == '__main__':
     app.run(port=5000)
