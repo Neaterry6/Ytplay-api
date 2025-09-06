@@ -1,3 +1,4 @@
+
 from flask import Flask, jsonify, request
 import yt_dlp
 import urllib.parse
@@ -9,20 +10,25 @@ def play(query):
     media_type = request.args.get('format', 'video').lower()
     decoded_query = urllib.parse.unquote(query)
 
+    # yt-dlp options for clean direct media URLs
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
         'cookiefile': 'cookies.txt',
         'default_search': 'ytsearch1',
         'forcejson': True,
-        'format': 'bestaudio' if media_type == 'audio' else 'best'
+        'noplaylist': True,
+        'format': (
+            'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
+            else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
+        )
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             search_result = ydl.extract_info(decoded_query, download=False)
 
-            # ytsearch returns a playlist, so we grab the first video
+            # ytsearch returns a playlist object — grab first video
             if 'entries' in search_result and search_result['entries']:
                 info = search_result['entries'][0]
             else:
