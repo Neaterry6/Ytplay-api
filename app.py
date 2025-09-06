@@ -14,6 +14,7 @@ def shorten_url(long_url):
     except Exception:
         return long_url
 
+# ⚡ Cache results to avoid repeated YouTube hits
 @lru_cache(maxsize=100)
 def fetch_video_info(query, media_type):
     ydl_opts = {
@@ -37,6 +38,14 @@ def fetch_video_info(query, media_type):
             return result['entries'][0]
         return None
 
+@app.route('/')
+def home():
+    return jsonify({
+        "message": "Welcome to Broken Vzn's YouTube API",
+        "usage": "/play/<query>?format=audio|video",
+        "creator": "Broken Vzn"
+    })
+
 @app.route('/play/<path:query>')
 def play(query):
     media_type = request.args.get('format', 'video').lower()
@@ -48,7 +57,9 @@ def play(query):
             return jsonify({
                 "title": decoded_query,
                 "download_url": None,
+                "video_url": None,
                 "thumbnail": None,
+                "duration": None,
                 "format": "mp3" if media_type == "audio" else "mp4",
                 "quality": None,
                 "type": media_type,
@@ -57,11 +68,14 @@ def play(query):
             }), 404
 
         short_url = shorten_url(info.get("url"))
+        video_url = f"https://www.youtube.com/watch?v={info.get('id')}" if info.get("id") else None
 
         return jsonify({
             "title": info.get("title"),
             "download_url": short_url,
+            "video_url": video_url,
             "thumbnail": info.get("thumbnail"),
+            "duration": info.get("duration"),
             "format": "mp3" if media_type == "audio" else "mp4",
             "quality": info.get("format"),
             "type": media_type,
@@ -69,28 +83,18 @@ def play(query):
         })
 
     except yt_dlp.utils.DownloadError as e:
-        if "429" in str(e):
-            return jsonify({
-                "title": decoded_query,
-                "download_url": None,
-                "thumbnail": None,
-                "format": "mp3" if media_type == "audio" else "mp4",
-                "quality": None,
-                "type": media_type,
-                "creator": "Broken Vzn",
-                "error": "YouTube is rate-limiting this server. Try again later."
-            }), 429
-        else:
-            return jsonify({
-                "title": decoded_query,
-                "download_url": None,
-                "thumbnail": None,
-                "format": "mp3" if media_type == "audio" else "mp4",
-                "quality": None,
-                "type": media_type,
-                "creator": "Broken Vzn",
-                "error": str(e)
-            }), 500
+        return jsonify({
+            "title": decoded_query,
+            "download_url": None,
+            "video_url": None,
+            "thumbnail": None,
+            "duration": None,
+            "format": "mp3" if media_type == "audio" else "mp4",
+            "quality": None,
+            "type": media_type,
+            "creator": "Broken Vzn",
+            "error": str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(port=5000, threaded=True)
