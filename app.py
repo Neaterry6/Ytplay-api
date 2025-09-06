@@ -9,7 +9,7 @@ app = Flask(__name__)
 def shorten_url(long_url):
     try:
         response = requests.get(f"https://tinyurl.com/api-create.php?url={long_url}")
-        return response.text
+        return response.text if response.status_code == 200 else long_url
     except Exception:
         return long_url
 
@@ -22,6 +22,7 @@ def fetch_video_info(query, media_type):
         'default_search': 'ytsearch1',
         'forcejson': True,
         'noplaylist': True,
+        'force_ipv4': True,
         'format': (
             'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
             else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
