@@ -2,44 +2,20 @@ from flask import Flask, jsonify, request
 import yt_dlp
 import urllib.parse
 import requests
-from functools import lru_cache
 
 app = Flask(__name__)
 
-# 🔗 Shorten long URLs using TinyURL, but skip if it's a YouTube or Google link
+# 🔗 Safe URL shortener (skip YouTube/Google to avoid block)
 def safe_shorten_url(long_url):
-    if "google.com" in long_url or "youtube.com" in long_url or "youtu.be" in long_url:
-        return long_url  # Avoid shortening blocked domains
+    if any(domain in long_url for domain in ["youtube.com", "youtu.be", "google.com"]):
+        return long_url
     try:
         response = requests.get(f"https://tinyurl.com/api-create.php?url={long_url}", timeout=2)
         return response.text if response.status_code == 200 else long_url
     except Exception:
         return long_url
 
-# ⚡ Cache results to avoid repeated YouTube hits
-@lru_cache(maxsize=100)
-def fetch_video_info(video_url, media_type):
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True,
-        'cookiefile': 'cookies.txt',
-        'forcejson': True,
-        'noplaylist': True,
-        'force_ipv4': True,
-        'socket_timeout': 5,
-        'format': (
-            'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
-            else 'bestvideo+bestaudio/best'
-        )
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            return ydl.extract_info(video_url, download=False)
-        except Exception:
-            return None
-
-# 🔍 Search YouTube and return first video URL
+# 🔍 Search YouTube and return top video URL
 def search_youtube(query):
     ydl_opts = {
         'quiet': True,
@@ -48,12 +24,29 @@ def search_youtube(query):
         'forcejson': True,
         'noplaylist': True
     }
-
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             result = ydl.extract_info(query, download=False)
             if 'entries' in result and result['entries']:
                 return result['entries'][0].get('webpage_url')
+        except Exception:
+            return None
+
+# 🎯 Extract media info from YouTube URL
+def fetch_media_info(video_url, media_type):
+    ydl_opts = {
+        'quiet': True,
+        'skip_download': True,
+        'forcejson': True,
+        'noplaylist': True,
+        'format': (
+            'bestaudio/best' if media_type == 'audio'
+            else 'bestvideo+bestaudio/best'
+        )
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
+            return ydl.extract_info(video_url, download=False)
         except Exception:
             return None
 
@@ -72,7 +65,6 @@ def play(query):
 
     # 🔍 Search YouTube for the query
     video_url = search_youtube(decoded_query)
-
     if not video_url:
         return jsonify({
             "title": decoded_query,
@@ -88,9 +80,8 @@ def play(query):
             "error": "No video found"
         }), 404
 
-    # 🎯 Fetch video info from the resolved URL
-    info = fetch_video_info(video_url, media_type)
-
+    # 🎯 Fetch media info
+    info = fetch_media_info(video_url, media_type)
     if not info or not info.get("url"):
         return jsonify({
             "title": decoded_query,
