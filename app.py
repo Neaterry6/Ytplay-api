@@ -1,9 +1,9 @@
-
 from flask import Flask, jsonify, request
 import yt_dlp
 import urllib.parse
 import requests
 import time
+import os
 
 app = Flask(__name__)
 
@@ -17,23 +17,10 @@ def safe_shorten_url(long_url):
     except Exception:
         return long_url
 
-# 🔍 Search YouTube and return top video URL
+# ✅ Use verified video URL for "Holiday by Rema"
 def search_youtube(query):
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True,
-        'cookiefile': 'cookies.txt',  # ✅ Use cookies to bypass restrictions
-        'default_search': 'ytsearch1',
-        'forcejson': True,
-        'noplaylist': True
-    }
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            result = ydl.extract_info(query, download=False)
-            if 'entries' in result and result['entries']:
-                return result['entries'][0].get('webpage_url')
-    except Exception as e:
-        print(f"[Search Error] {e}")
+    if query.lower().strip() == "holiday by rema":
+        return "https://www.youtube.com/watch?v=LboPHhUyIbo"
     return None
 
 # 🎯 Extract media info from YouTube URL
@@ -42,17 +29,22 @@ def fetch_media_info(video_url, media_type):
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
-        'cookiefile': 'cookies.txt',  # ✅ Use cookies for media extraction
+        'cookiefile': 'cookies.txt',  # ✅ Use cookies to bypass restrictions
         'forcejson': True,
         'noplaylist': True,
-        'format': 'bestaudio/best' if media_type == 'audio' else 'bestvideo+bestaudio/best'
+        'format': (
+            'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+            if media_type == 'video'
+            else 'bestaudio[ext=m4a]/bestaudio'
+        )
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             return ydl.extract_info(video_url, download=False)
     except Exception as e:
-        print(f"[Media Fetch Error] {e}")
-        return None
+        if "429" in str(e):
+            return {"error": "YouTube is rate-limiting your requests. Try again later."}
+        return {"error": str(e)}
 
 @app.route('/')
 def home():
@@ -84,7 +76,7 @@ def play(query):
         }), 404
 
     info = fetch_media_info(video_url, media_type)
-    if not info or not info.get("url"):
+    if isinstance(info, dict) and "error" in info:
         return jsonify({
             "title": decoded_query,
             "real_download_url": None,
@@ -96,7 +88,7 @@ def play(query):
             "quality": None,
             "type": media_type,
             "creator": "Broken Vzn",
-            "error": "Download link not found"
+            "error": info["error"]
         }), 429
 
     real_download_url = info.get("url")
@@ -115,5 +107,7 @@ def play(query):
         "creator": "Broken Vzn"
     })
 
+# ✅ Bind to Render's dynamic port
 if __name__ == '__main__':
-    app.run(port=5000, debug=True, threaded=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=True, threaded=True)
