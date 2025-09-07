@@ -1,3 +1,4 @@
+
 from flask import Flask, jsonify, request
 import yt_dlp
 import urllib.parse
@@ -30,7 +31,8 @@ def search_youtube(query):
             result = ydl.extract_info(query, download=False)
             if 'entries' in result and result['entries']:
                 return result['entries'][0].get('webpage_url')
-        except Exception:
+        except Exception as e:
+            print(f"Search error: {e}")
             return None
 
 # 🎯 Extract media info from YouTube URL
@@ -46,7 +48,8 @@ def fetch_media_info(video_url, media_type):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             return ydl.extract_info(video_url, download=False)
-        except Exception:
+        except Exception as e:
+            print(f"Media fetch error: {e}")
             return None
 
 @app.route('/')
@@ -113,4 +116,4 @@ def play(query):
     })
 
 if __name__ == '__main__':
-    app.run(port=5000, threaded=True)
+    app.run(port=5000, debug=True, threaded=True)
