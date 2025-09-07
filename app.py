@@ -6,7 +6,6 @@ app = Flask(__name__)
 
 # 🔧 Generate a short download URL (placeholder logic)
 def shorten_download_url(video_id):
-    # Replace with your own redirector or dynamic logic if needed
     return "https://amy46.oceansaver.in/pacific/?0geBw0SIRLAo7JGf6FIGBH8"
 
 # 🔍 Search YouTube and extract metadata using yt_dlp
@@ -17,7 +16,7 @@ def get_video_data(query):
         'default_search': 'ytsearch1',
         'forcejson': True,
         'format': 'best[ext=mp4]/best',
-        'cookiefile': 'cookies.txt'  # Optional but recommended
+        'cookiefile': 'cookies.txt'  # Optional
     }
 
     try:
@@ -30,7 +29,7 @@ def get_video_data(query):
             duration = f"{duration_sec // 60}:{duration_sec % 60:02}"
             views = video.get("view_count", 0)
             published = video.get("upload_date", "")
-            published_fmt = f"{published[:4]}-{published[4:6]}-{published[6:]}" if len(published) == 8 else "Unknown"
+            published_fmt = "6 years ago"  # You can use exact date if preferred
 
             return {
                 "title": video.get("title"),
@@ -75,7 +74,44 @@ def video():
             "thumbnail": thumbnail,
             "duration": video_data["duration"],
             "views": video_data["views"],
-            "published": "6 years ago",  # You can replace with video_data["published"] if you want exact date
+            "published": video_data["published"],
+            "download_url": short_download_url
+        }
+    })
+
+# 🎧 /play?query=... — same format as /video
+@app.route('/play')
+def play():
+    query = request.args.get('query')
+    if not query:
+        return jsonify({
+            "creator": "broken Vzn",
+            "status": False,
+            "error": "Missing query parameter"
+        }), 400
+
+    video_data = get_video_data(query)
+    if not video_data:
+        return jsonify({
+            "creator": "broken Vzn",
+            "status": False,
+            "error": "Audio not found"
+        }), 404
+
+    video_url = f"https://youtube.com/watch?v={video_data['video_id']}"
+    thumbnail = f"https://i.ytimg.com/vi/{video_data['video_id']}/hq720.jpg"
+    short_download_url = shorten_download_url(video_data["video_id"])
+
+    return jsonify({
+        "creator": "broken Vzn",
+        "status": True,
+        "result": {
+            "title": video_data["title"],
+            "video_url": video_url,
+            "thumbnail": thumbnail,
+            "duration": video_data["duration"],
+            "views": video_data["views"],
+            "published": video_data["published"],
             "download_url": short_download_url
         }
     })
@@ -84,8 +120,8 @@ def video():
 @app.route('/')
 def home():
     return jsonify({
-        "message": "Broken Vzn YouTube Metadata API is running",
-        "routes": ["/video?query=..."],
+        "message": "broken Vzn's YouTube Metadata API is running",
+        "routes": ["/video?query=...", "/play?query=..."],
         "creator": "broken Vzn"
     })
 
