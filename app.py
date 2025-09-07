@@ -1,6 +1,5 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import yt_dlp
-import urllib.parse
 import os
 
 app = Flask(__name__)
@@ -13,7 +12,7 @@ def get_video_data(query):
         'default_search': 'ytsearch1',
         'forcejson': True,
         'format': 'best[ext=mp4]/best',
-        'cookiefile': 'cookies.txt'  # optional but recommended
+        'cookiefile': 'cookies.txt'  # optional
     }
 
     try:
@@ -39,12 +38,18 @@ def get_video_data(query):
         print(f"[yt_dlp error] {e}")
         return None
 
-# 🎧 /play route — simplified audio metadata
-@app.route('/play/<path:query>')
-def play(query):
-    decoded_query = urllib.parse.unquote(query)
-    video_data = get_video_data(decoded_query)
+# 🎧 /play?query=... — simplified audio metadata
+@app.route('/play')
+def play():
+    query = request.args.get('query')
+    if not query:
+        return jsonify({
+            "creator": "Broken Vzn",
+            "status": False,
+            "error": "Missing query parameter"
+        }), 400
 
+    video_data = get_video_data(query)
     if not video_data:
         return jsonify({
             "creator": "Broken Vzn",
@@ -61,12 +66,18 @@ def play(query):
         }
     })
 
-# 🎬 /video route — full video metadata
-@app.route('/video/<path:query>')
-def video(query):
-    decoded_query = urllib.parse.unquote(query)
-    video_data = get_video_data(decoded_query)
+# 🎬 /video?query=... — full video metadata
+@app.route('/video')
+def video():
+    query = request.args.get('query')
+    if not query:
+        return jsonify({
+            "creator": "Broken Vzn",
+            "status": False,
+            "error": "Missing query parameter"
+        }), 400
 
+    video_data = get_video_data(query)
     if not video_data:
         return jsonify({
             "creator": "Broken Vzn",
@@ -96,7 +107,7 @@ def video(query):
 def home():
     return jsonify({
         "message": "Broken Vzn's Media API is running",
-        "routes": ["/play/<query>", "/video/<query>"],
+        "routes": ["/play?query=...", "/video?query=..."],
         "creator": "Broken Vzn"
     })
 
