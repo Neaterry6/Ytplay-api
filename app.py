@@ -20,7 +20,7 @@ def search_youtube(query):
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
-        'default_search': 'ytsearch',
+        'default_search': 'ytsearch1',
         'forcejson': True,
         'noplaylist': True
     }
@@ -39,10 +39,7 @@ def fetch_media_info(video_url, media_type):
         'skip_download': True,
         'forcejson': True,
         'noplaylist': True,
-        'format': (
-            'bestaudio/best' if media_type == 'audio'
-            else 'bestvideo+bestaudio/best'
-        )
+        'format': 'bestaudio/best' if media_type == 'audio' else 'bestvideo+bestaudio/best'
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
