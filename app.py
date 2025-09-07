@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request
 import yt_dlp
 import urllib.parse
 import requests
+import time
 
 app = Flask(__name__)
 
@@ -26,17 +27,18 @@ def search_youtube(query):
         'forcejson': True,
         'noplaylist': True
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             result = ydl.extract_info(query, download=False)
             if 'entries' in result and result['entries']:
                 return result['entries'][0].get('webpage_url')
-        except Exception as e:
-            print(f"Search error: {e}")
-            return None
+    except Exception as e:
+        print(f"[Search Error] {e}")
+    return None
 
 # 🎯 Extract media info from YouTube URL
 def fetch_media_info(video_url, media_type):
+    time.sleep(1.5)  # ⏳ Delay to avoid rate-limiting
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
@@ -45,12 +47,12 @@ def fetch_media_info(video_url, media_type):
         'noplaylist': True,
         'format': 'bestaudio/best' if media_type == 'audio' else 'bestvideo+bestaudio/best'
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             return ydl.extract_info(video_url, download=False)
-        except Exception as e:
-            print(f"Media fetch error: {e}")
-            return None
+    except Exception as e:
+        print(f"[Media Fetch Error] {e}")
+        return None
 
 @app.route('/')
 def home():
@@ -65,7 +67,6 @@ def play(query):
     media_type = request.args.get('format', 'video').lower()
     decoded_query = urllib.parse.unquote(query)
 
-    # 🔍 Search YouTube for the query
     video_url = search_youtube(decoded_query)
     if not video_url:
         return jsonify({
@@ -82,7 +83,6 @@ def play(query):
             "error": "No video found"
         }), 404
 
-    # 🎯 Fetch media info
     info = fetch_media_info(video_url, media_type)
     if not info or not info.get("url"):
         return jsonify({
@@ -97,7 +97,7 @@ def play(query):
             "type": media_type,
             "creator": "Broken Vzn",
             "error": "Download link not found"
-        }), 404
+        }), 429
 
     real_download_url = info.get("url")
     tinyurl_download_url = safe_shorten_url(real_download_url)
