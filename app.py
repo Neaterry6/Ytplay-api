@@ -6,10 +6,10 @@ from functools import lru_cache
 
 app = Flask(__name__)
 
-# 🔗 Shorten long download URLs using is.gd
+# 🔗 Shorten long download URLs using TinyURL
 def shorten_url(long_url):
     try:
-        response = requests.get(f"https://is.gd/create.php?format=simple&url={long_url}", timeout=2)
+        response = requests.get(f"https://tinyurl.com/api-create.php?url={long_url}", timeout=2)
         return response.text if response.status_code == 200 else long_url
     except Exception:
         return long_url
@@ -28,7 +28,7 @@ def fetch_video_info(query, media_type):
         'socket_timeout': 5,
         'format': (
             'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
-            else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
+            else 'bestvideo+bestaudio/best'
         )
     }
 
@@ -37,7 +37,7 @@ def fetch_video_info(query, media_type):
             result = ydl.extract_info(query, download=False)
             if 'entries' in result and result['entries']:
                 return result['entries'][0]
-            return None
+            return result
         except Exception:
             return None
 
@@ -67,7 +67,7 @@ def play(query):
                 'noplaylist': True,
                 'format': (
                     'bestaudio[ext=m4a]/bestaudio' if media_type == 'audio'
-                    else 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]'
+                    else 'bestvideo+bestaudio/best'
                 )
             }) as ydl:
                 info = ydl.extract_info(fallback_url, download=False)
@@ -95,8 +95,8 @@ def play(query):
 
     return jsonify({
         "title": info.get("title"),
-        "real_download_url": real_download_url,           # ✅ Original direct download link
-        "tinyurl_download_url": tinyurl_download_url,     # 🔗 Shortened link via is.gd
+        "real_download_url": real_download_url,
+        "tinyurl_download_url": tinyurl_download_url,
         "video_url": video_url,
         "thumbnail": info.get("thumbnail"),
         "duration": info.get("duration"),
