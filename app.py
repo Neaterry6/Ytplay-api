@@ -1,21 +1,43 @@
 from flask import Flask, jsonify
+import yt_dlp
 import urllib.parse
 import os
 
 app = Flask(__name__)
 
-# 🔍 Simulated YouTube search result for "baby girl by joeboy"
+# 🔍 Extract real video metadata using yt_dlp
 def get_video_data(query):
-    if query.lower().strip() == "baby girl by joeboy":
-        return {
-            "title": "Joeboy - Baby Girl (Official Audio)",
-            "video_id": "wlOUX5IWT4Y",
-            "duration": "2:38",
-            "views": 46000,
-            "published": "5 years ago",
-            "download_url": "https://amy46.oceansaver.in/pacific/?0geBw0SIRLAo7JGf6FIGBH8"
-        }
-    return None
+    ydl_opts = {
+        'quiet': True,
+        'skip_download': True,
+        'default_search': 'ytsearch1',
+        'forcejson': True,
+        'format': 'best[ext=mp4]/best',
+        'cookiefile': 'cookies.txt'  # optional but recommended
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(query, download=False)
+            video = info['entries'][0] if 'entries' in info else info
+
+            video_id = video.get("id")
+            duration_sec = video.get("duration", 0)
+            duration = f"{duration_sec // 60}:{duration_sec % 60:02}"
+            published = video.get("upload_date", "")
+            published_fmt = f"{published[:4]}-{published[4:6]}-{published[6:]}" if len(published) == 8 else "Unknown"
+
+            return {
+                "title": video.get("title"),
+                "video_id": video_id,
+                "duration": duration,
+                "views": video.get("view_count"),
+                "published": published_fmt,
+                "download_url": video.get("url")
+            }
+    except Exception as e:
+        print(f"[yt_dlp error] {e}")
+        return None
 
 # 🎧 /play route — simplified audio metadata
 @app.route('/play/<path:query>')
