@@ -20,6 +20,7 @@ def search_youtube(query):
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
+        'cookiefile': 'cookies.txt',  # ✅ Use cookies to bypass restrictions
         'default_search': 'ytsearch1',
         'forcejson': True,
         'noplaylist': True
@@ -37,6 +38,7 @@ def fetch_media_info(video_url, media_type):
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
+        'cookiefile': 'cookies.txt',  # ✅ Use cookies for media extraction
         'forcejson': True,
         'noplaylist': True,
         'format': 'bestaudio/best' if media_type == 'audio' else 'bestvideo+bestaudio/best'
