@@ -1,3 +1,4 @@
+
 from flask import Flask, jsonify, request
 import yt_dlp
 import urllib.parse
@@ -33,8 +34,7 @@ def fetch_media_info(video_url, media_type):
         'forcejson': True,
         'noplaylist': True,
         'format': (
-            'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
-            if media_type == 'video'
+            'best[ext=mp4]/best' if media_type == 'video'
             else 'bestaudio[ext=m4a]/bestaudio'
         )
     }
