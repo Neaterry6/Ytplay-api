@@ -13,7 +13,8 @@ def play():
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
-        'default_search': 'ytsearch1'
+        'default_search': 'ytsearch1',
+        'cookiefile': 'cookies.txt'  # <-- uses your Netscape-format cookies
     }
 
     try:
