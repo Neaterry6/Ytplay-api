@@ -23,16 +23,16 @@ def play():
             video = info['entries'][0] if 'entries' in info else info
 
             return jsonify({
-                'status': True,
-                'title': video.get('title'),
-                'id': video.get('id'),
-                'url': f"https://www.youtube.com/watch?v={video.get('id')}",
-                'thumbnail': video.get('thumbnail') or f"https://i.ytimg.com/vi/{video.get('id')}/hqdefault.jpg",
-                'duration': video.get('duration_string') or str(video.get('duration')),
-                'channel': video.get('channel'),
-                'upload_date': video.get('upload_date'),
-                'views': video.get('view_count')
-            })
+    'status': True,
+    'title': video.get('title'),
+    'id': video.get('id'),
+    'url': f"https://www.youtube.com/watch?v={video.get('id')}",
+    'thumbnail': video.get('thumbnail') or f"https://i.ytimg.com/vi/{video.get('id')}/hqdefault.jpg",
+    'duration': video.get('duration_string') or str(video.get('duration')),
+    'creator': 'broken Vzn',
+    'upload_date': video.get('upload_date'),
+    'views': video.get('view_count')
+})
     except Exception as e:
         return jsonify({'status': False, 'error': str(e)}), 500
 
