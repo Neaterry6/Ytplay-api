@@ -13,8 +13,7 @@ def play():
     ydl_opts = {
         'quiet': True,
         'skip_download': True,
-        'default_search': 'ytsearch1',
-        'extract_flat': 'in_playlist'
+        'default_search': 'ytsearch1'
     }
 
     try:
@@ -27,7 +26,7 @@ def play():
                 'title': video.get('title'),
                 'id': video.get('id'),
                 'url': f"https://www.youtube.com/watch?v={video.get('id')}",
-                'thumbnail': video.get('thumbnail'),
+                'thumbnail': video.get('thumbnail') or f"https://i.ytimg.com/vi/{video.get('id')}/hqdefault.jpg",
                 'duration': video.get('duration_string') or str(video.get('duration')),
                 'channel': video.get('channel'),
                 'upload_date': video.get('upload_date'),
