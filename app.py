@@ -23,7 +23,7 @@ def play():
     opts = get_ydl_opts('best')
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(query, download=False)
+            info = ydl.extract_info(f"ytsearch:{query}", download=False)
             video = info['entries'][0] if 'entries' in info else info
 
             return jsonify({
@@ -40,8 +40,8 @@ def play():
     except Exception as e:
         return jsonify({'status': False, 'error': str(e)}), 500
 
-@app.route('/audio')
-def audio():
+@app.route('/play/audio')
+def play_audio():
     query = request.args.get('query')
     if not query:
         return jsonify({'status': False, 'error': 'Missing query'}), 400
@@ -49,20 +49,22 @@ def audio():
     opts = get_ydl_opts('bestaudio[ext=m4a]/bestaudio/best')
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(query, download=False)
+            info = ydl.extract_info(f"ytsearch:{query}", download=False)
+            video = info['entries'][0] if 'entries' in info else info
+
             return jsonify({
                 'status': True,
-                'title': info.get('title'),
-                'duration': info.get('duration_string') or str(info.get('duration')),
-                'thumbnail': info.get('thumbnail') or f"https://i.ytimg.com/vi/{info.get('id')}/hqdefault.jpg",
-                'download_url': info.get('url'),
+                'title': video.get('title'),
+                'duration': video.get('duration_string') or str(video.get('duration')),
+                'thumbnail': video.get('thumbnail') or f"https://i.ytimg.com/vi/{video.get('id')}/hqdefault.jpg",
+                'download_url': video.get('url'),
                 'creator': 'broken Vzn'
             })
     except Exception as e:
         return jsonify({'status': False, 'error': str(e)}), 500
 
-@app.route('/video')
-def video():
+@app.route('/play/video')
+def play_video():
     query = request.args.get('query')
     if not query:
         return jsonify({'status': False, 'error': 'Missing query'}), 400
@@ -70,13 +72,15 @@ def video():
     opts = get_ydl_opts('best[ext=mp4]/best')
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(query, download=False)
+            info = ydl.extract_info(f"ytsearch:{query}", download=False)
+            video = info['entries'][0] if 'entries' in info else info
+
             return jsonify({
                 'status': True,
-                'title': info.get('title'),
-                'duration': info.get('duration_string') or str(info.get('duration')),
-                'thumbnail': info.get('thumbnail') or f"https://i.ytimg.com/vi/{info.get('id')}/hqdefault.jpg",
-                'download_url': info.get('url'),
+                'title': video.get('title'),
+                'duration': video.get('duration_string') or str(video.get('duration')),
+                'thumbnail': video.get('thumbnail') or f"https://i.ytimg.com/vi/{video.get('id')}/hqdefault.jpg",
+                'download_url': video.get('url'),
                 'creator': 'broken Vzn'
             })
     except Exception as e:
