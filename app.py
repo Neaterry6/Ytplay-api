@@ -4,20 +4,25 @@ import os
 
 app = Flask(__name__)
 
+# Shared yt-dlp options with cookie support
+def get_ydl_opts(format_type):
+    return {
+        'quiet': True,
+        'default_search': 'ytsearch1',
+        'format': format_type,
+        'skip_download': True,
+        'cookiefile': 'cookies.txt'
+    }
+
 @app.route('/play')
 def play():
     query = request.args.get('query')
     if not query:
         return jsonify({'status': False, 'error': 'Missing query'}), 400
 
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True,
-        'default_search': 'ytsearch1'
-    }
-
+    opts = get_ydl_opts('best')
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(query, download=False)
             video = info['entries'][0] if 'entries' in info else info
 
@@ -41,15 +46,9 @@ def audio():
     if not query:
         return jsonify({'status': False, 'error': 'Missing query'}), 400
 
-    ydl_opts = {
-        'quiet': True,
-        'default_search': 'ytsearch1',
-        'format': 'bestaudio[ext=m4a]/bestaudio/best',
-        'skip_download': True
-    }
-
+    opts = get_ydl_opts('bestaudio[ext=m4a]/bestaudio/best')
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(query, download=False)
             return jsonify({
                 'status': True,
@@ -68,15 +67,9 @@ def video():
     if not query:
         return jsonify({'status': False, 'error': 'Missing query'}), 400
 
-    ydl_opts = {
-        'quiet': True,
-        'default_search': 'ytsearch1',
-        'format': 'best[ext=mp4]/best',
-        'skip_download': True
-    }
-
+    opts = get_ydl_opts('best[ext=mp4]/best')
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(query, download=False)
             return jsonify({
                 'status': True,
@@ -91,4 +84,5 @@ def video():
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
+    print("Using cookies from:", os.path.abspath("cookies.txt"))
     app.run(host="0.0.0.0", port=port)
